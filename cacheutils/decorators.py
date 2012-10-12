@@ -21,10 +21,11 @@ class cached(object):
 
     def call(self, fn, args, kwargs, force=False):
         key_prefix = 'cacheutils:'
-        hash_ = hash(pickle.dumps([args, kwargs]))
+        args_hash = hash(pickle.dumps([args, kwargs]))
+        #TODO: use a better hash for fn
+        function_hash = hash(fn.__module__ + fn.__name__)
 
-        #TODO: is hash(fn) the same across threads, processes and servers?
-        key = '{0}:{1}:{2}'.format(key_prefix, hash(fn), hash_)
+        key = '{0}:{1}:{2}'.format(key_prefix, function_hash, args_hash)
 
         if not force:
             data = cache.get(key)
