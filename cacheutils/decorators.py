@@ -33,7 +33,6 @@ class cached(object):
             data = None
 
         if data:
-            data = pickle.loads(data)
             if data[0] > timezone.now():
                 return data[1]
 
@@ -48,9 +47,7 @@ class cached(object):
 
         cache.set(
             key,
-            pickle.dumps(
-                (timezone.now() + timedelta(seconds=self.expire), out)
-            ),
+            (timezone.now() + timedelta(seconds=self.expire), out),
             self.hard_expire
         )
 
