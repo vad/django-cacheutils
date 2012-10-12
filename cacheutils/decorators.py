@@ -19,41 +19,53 @@ class cached(object):
         self.hard_expire = hard_expire
         self.default = default
 
+    def call(self, fn, args, kwargs, force=False):
+        key_prefix = 'cacheutils:'
+        hash_ = hash(pickle.dumps([args, kwargs]))
+
+        #TODO: is hash(fn) the same across threads, processes and servers?
+        key = '{0}:{1}:{2}'.format(key_prefix, hash(fn), hash_)
+
+        if not force:
+            data = cache.get(key)
+        else:
+            data = None
+
+        if data:
+            data = pickle.loads(data)
+            if data[0] > timezone.now():
+                return data[1]
+
+        try:
+            out = fn(*args, **kwargs)
+        except ServeStaleContentException:
+            # serve stale content, if any
+            if data:
+                return data[1]
+
+            return self.default
+
+        cache.set(
+            key,
+            pickle.dumps(
+                (timezone.now() + timedelta(seconds=self.expire), out)
+            ),
+            self.hard_expire
+        )
+
+        return out
+
     def __call__(self, fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
             """wrapper function"""
 
-            key_prefix = 'cacheutils:'
-            hash_ = hash(pickle.dumps([args, kwargs]))
+            return self.call(fn, args, kwargs)
 
-            #TODO: is hash(fn) the same across threads, processes and servers?
-            key = '{0}:{1}:{2}'.format(key_prefix, hash(fn), hash_)
+        def force(*args, **kwargs):
+            return self.call(fn, args, kwargs, force=True)
 
-            data = cache.get(key)
-
-            if data:
-                data = pickle.loads(data)
-                if data[0] > timezone.now():
-                    return data[1]
-
-            try:
-                out = fn(*args, **kwargs)
-            except ServeStaleContentException:
-                # serve stale content, if any
-                if data:
-                    return data[1]
-
-                return self.default
-
-            cache.set(
-                key,
-                pickle.dumps(
-                    (timezone.now() + timedelta(seconds=self.expire), out)
-                ),
-                self.hard_expire
-            )
-
-            return out
+        wrapper.force = force
+#        wrapper.fn = fn
 
         return wrapper
