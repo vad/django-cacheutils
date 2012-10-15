@@ -20,7 +20,7 @@ class cached(object):
         self.default = default
 
     def call(self, fn, args, kwargs, force=False):
-        key_prefix = 'cacheutils:'
+        key_prefix = 'cacheutils'
         args_hash = hash(pickle.dumps([args, kwargs]))
         #TODO: use a better hash for fn
         function_hash = hash(fn.__module__ + fn.__name__)
@@ -32,10 +32,10 @@ class cached(object):
         else:
             data = None
 
-        if data:
-            if data[0] > timezone.now():
-                return data[1]
+        if data and data[0] > timezone.now():
+            return data[1]
 
+        kwargs['forced'] = force
         try:
             out = fn(*args, **kwargs)
         except ServeStaleContentException:
